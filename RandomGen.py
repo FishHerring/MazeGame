@@ -1,17 +1,19 @@
 import pygame # Importerer pygame, som er et bibliotek til at lave spil.
 from random import choice, randint # Importerer choice og randint fra random, som bruges i vores tilfælde til at vælge en tilfældig nabo til en celle, og en tilfældig slutposition for spilleren.
-
+import time # Importerer time, som bruges til at tælle tiden i spillet.
+import tkinter as tk # Importerer tkinter, som bruges til at lave en GUI, hvilket i vores tilfælde er tid.
 
 # Window settings
 WIDTH, HEIGHT, TILE = 400, 400, 50 # Længde og bredde af vinduet, samt størrelsen af hver celle.
 cols, rows = WIDTH // TILE, HEIGHT // TILE # Definerer cols og rows som længden og bredden af vinduet, og definerer størrelsen af hver celle.
-BLUE, RED, GREEN = (0, 0, 255), (255, 0, 0), (0, 255, 0) # Farvekoder for spilleren, slutposition og startpositionen.
+BLUE, RED, GREEN, GRAY = (0, 0, 255), (255, 0, 0), (0, 255, 0), (120, 120, 120) # Farvekoder for spilleren, slutposition og startpositionen.
 
 # Pygame setup
 pygame.init()
 sc = pygame.display.set_mode((WIDTH, HEIGHT)) # Pygame funktion til at vise vinduet uf fra WIDTH og HEIGHT.
 pygame.display.set_caption("Maze Game") # Spil Titel
 clock = pygame.time.Clock() # FPS
+
 
 class Cell: 
     def __init__(self, x, y): # Hver celle har en x og y koordinat, samt 4 vægge.
@@ -57,41 +59,54 @@ def generate_maze(): # Funktion til at generere labyrinten.
             current = stack.pop() # pop er en funktion der fjerner det sidste element i en liste, her fjernes current fra stack.
     return grid # Returnerer grid, som er labyrinten.
 
-
 def main(): # Main er funktionen der kører spillet.
-    grid = generate_maze() # Genererer labyrinten, ud fra funktionen generate_maze.
-    player_pos, end = [0, 0], [cols - 1, randint(0, rows - 1)] # Definerer player_pos som spillerens start position, altså i den første celle, samt end som en random position i højre siden af skærmen.
+    start = time.time() # Starter tiden.
+    grid = generate_maze() # Genererer labyrinten
+    player_pos, end = [0, 0], [cols - 1, randint(0, rows - 1)] # Start og slut position
+    trail = []  # Liste til at gemme spillerens tidligere positioner
     running = True # Så længe spillet kører er running True.
+    font = pygame.font.Font(None, 36)  # Standard font, størrelse 36
     while running: # Så længe running er True.
         sc.fill(pygame.Color('gray20')) # Baggrunden er grå.
-        for cell in grid: # For hver celle i grid.
+        for cell in grid:  # Tegner labyrinten
             cell.draw(sc) # sc er vinduet, og cell.draw tegner cellen.
-        pygame.draw.rect(sc, RED, (TILE * 0.15, TILE * 0.15, TILE * 0.7, TILE * 0.7)) # Tegner en rektangel, som har farven rød, og er spillerens start position.
-        pygame.draw.rect(sc, GREEN, (end[0] * TILE + TILE * 0.15, end[1] * TILE + TILE * 0.15, TILE * 0.7, TILE * 0.7)) # Tegner en rektangel, som har farven grøn, og er spillerens slut position.
-        pygame.draw.rect(sc, BLUE, (player_pos[0] * TILE + TILE//4, player_pos[1] * TILE + TILE//4, TILE//2, TILE//2)) # Tegner spilleren som blå, og placere dem ved player_pos, hvilket er start positionen, herefter tegnes spillerens størrelse.
-        pygame.display.flip() # Opdaterer labyrinten med de nye ændringer.
-        clock.tick(30) # Sætter vores FPS til 30.
-        for event in pygame.event.get(): # Henter "events" fra spillet, altså såsom spillerens bevægelse.
-            if event.type == pygame.QUIT: # Hvis spillet er slut
-                running = False # Sæt running til false, altså stop spillet.
-            elif event.type == pygame.KEYDOWN: # Hvis en knap trykkes ned.
-                x, y = player_pos # definerer x og y som spillerens position.
-                current_cell = grid[x + y * cols] # Henter den nuværende celle i labyrinten baseret på spillerens position.  
-                # Tjekker om spilleren kan bevæge sig i en given retning, og om der er en mur i vejen
-                if event.key == pygame.K_LEFT and x > 0 and not current_cell.walls['left']:
-                    player_pos[0] -= 1 # Flytter spilleren til venstre
-                elif event.key == pygame.K_RIGHT and x < cols - 1 and not current_cell.walls['right']:
-                    player_pos[0] += 1 # Flytter spilleren til højre
-                elif event.key == pygame.K_UP and y > 0 and not current_cell.walls['top']:
-                    player_pos[1] -= 1 # Flytter spilleren op
-                elif event.key == pygame.K_DOWN and y < rows - 1 and not current_cell.walls['bottom']:
-                    player_pos[1] += 1 # Flytter spilleren ned
-        
-        # Tjekker om spilleren har nået slutpositionen
-        if player_pos == end:
-            running = False # Stopper spillet hvis spillerens position er det samme som end.
-        
-    pygame.quit() # Lukker Pygame.
-    
+        # Tegner trail af små grå firkanter
+        for pos in trail: # For hver position i trail.
+            pygame.draw.rect(sc, GRAY, (pos[0] * TILE + TILE//3, pos[1] * TILE + TILE//3, TILE//3, TILE//3)) # Tegner trail som små grå firkanter.
+        pygame.draw.rect(sc, RED, (TILE * 0.15, TILE * 0.15, TILE * 0.7, TILE * 0.7))  # Start position
+        pygame.draw.rect(sc, GREEN, (end[0] * TILE + TILE * 0.15, end[1] * TILE + TILE * 0.15, TILE * 0.7, TILE * 0.7))  # Slut position
+        pygame.draw.rect(sc, BLUE, (player_pos[0] * TILE + TILE//4, player_pos[1] * TILE + TILE//4, TILE//2, TILE//2))  # Spilleren
+        elapsed_time = time.time() - start # elapsed_time er tiden minus start tiden, hvilket vi kan bruge til at vise tiden.
+        timer_text = font.render(f"Time: {elapsed_time:.2f}s", True, (255, 255, 255)) # Tegn tiden ud fra elapsed_time.
+        sc.blit(timer_text, (WIDTH // 2 - 50, 10))  # Placer tekst tiden i toppen, centreret.
+        pygame.display.flip()  # Opdater skærmen
+        clock.tick(30)  # FPS
+        for event in pygame.event.get():  # Event loop
+            if event.type == pygame.QUIT: # Hvis spillet er slut.
+                running = False # Set running til false.
+            elif event.type == pygame.KEYDOWN: # hvis python registrerer et keypress.
+                x, y = player_pos # Definere Position for spiller.
+                current_cell = grid[x + y * cols] # Henter den nuværende celle
+                if event.key == pygame.K_LEFT and x > 0 and not current_cell.walls['left']: # Tjekker om spilleren kan bevæge til venstre.
+                    trail.append(player_pos[:]) # tilføjer spillerens position til trail.
+                    player_pos[0] -= 1 # Flytter spilleren.
+                elif event.key == pygame.K_RIGHT and x < cols - 1 and not current_cell.walls['right']: # Tjekker om spilleren kan bevæge til højre.
+                    trail.append(player_pos[:]) # tilføjer spillerens position til trail.
+                    player_pos[0] += 1 # Flytter spilleren.
+                elif event.key == pygame.K_UP and y > 0 and not current_cell.walls['top']: # Tjekker om spilleren kan bevæge til op.
+                    trail.append(player_pos[:]) # tilføjer spillerens position til trail.
+                    player_pos[1] -= 1 # Flytter spilleren.  
+                elif event.key == pygame.K_DOWN and y < rows - 1 and not current_cell.walls['bottom']: # Tjekker om spilleren kan bevæge til ned.
+                    trail.append(player_pos[:]) # tilføjer spillerens position til trail.
+                    player_pos[1] += 1 # Flytter spilleren.
+        if player_pos == end: # Hvis spilleren når slutpositionen.
+            end = time.time() # Stop tiden.
+            length = end - start # Længden af spillet er tiden minus start tiden.
+            print(f"Tillykke, du har klaret vores maze på {length:.2f} sekunder!") # Print besked ud til spilleren.
+            running = False # Stop spillet
+            
+    pygame.quit()  # Lukker Pygame.
+
 if __name__ == "__main__": # Hvis filen bliver kørt direkte, så kører main-funktionen.
     main() # Kører main-funktionen.
+
